@@ -3920,7 +3920,24 @@ extern uint64_t GLOBAL_gatetrace;
 static void handle_arg_gatetrace(const char *arg) {
   GLOBAL_gatetrace = strtoull(arg, NULL, 0);
 }
+static void handle_arg_mmap_debug(const char *arg) {
+    do_mmap_debug = 1;
+}
+static void handle_arg_no_stackfix(const char *arg) {
+    do_stack_fix = 0;
+}
+static void handle_arg_no_mmapfix(const char *arg) {
+    //todo 32bit
+#if HOST_LONG_BITS == 64 && TARGET_ABI_BITS == 64
+//# define TASK_UNMAPPED_BASE  (1ul << 38)
+    TASK_UNMAPPED_BASE = (1ul << 38);
+    mmap_next_start = (1ul << 38);
+#endif
+}
 
+static void handle_arg_no_piefix(const char *arg) {
+    do_pie_fix = 0;
+}
 static const struct qemu_argument arg_table[] = {
     {"h",          "",                 false, handle_arg_help,
      "",           "print this help"},
@@ -3967,6 +3984,14 @@ static const struct qemu_argument arg_table[] = {
      "",           "Seed for pseudo-random number generator"},
     {"version",    "QEMU_VERSION",     false, handle_arg_version,
      "",           "display version information and exit"},
+    {"mmap",       "QEMU_MMAPDEBUG",     false, handle_arg_mmap_debug,
+     "",           "show mmap allocations"},
+    {"nostackfix", "QEMU_NOSTACKFIX",     false, handle_arg_no_stackfix,
+     "",           "disable stack fix (move stack to 0x7f0122222000)"},
+    {"nommapfix", "QEMU_NOMMAPFIX",     false, handle_arg_no_mmapfix,
+     "",           "disable mmap fix (for HOST_LONG_BITS == 64 && TARGET_ABI_BITS == 64 set mmap_next_start as 0x7f0211111000)."},
+    {"nopiefix", "QEMU_NOPIEFIX",     false, handle_arg_no_piefix,
+     "",           "disable pie fix (for elf64 load pie at 0x555555554000)."},
     {NULL, NULL, false, NULL, NULL, NULL}
 };
 

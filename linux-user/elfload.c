@@ -17,6 +17,9 @@
 #include "disas/disas.h"
 #include "librarymap.h"
 
+int do_stack_fix = 1;
+int do_pie_fix = 1;
+
 #ifdef _ARCH_PPC64
 #undef ARCH_DLINFO
 #undef ELF_PLATFORM
@@ -1442,9 +1445,43 @@ static abi_ulong setup_arg_pages(struct linux_binprm *bprm,
     if (guard < qemu_real_host_page_size) {
         guard = qemu_real_host_page_size;
     }
-
-    error = target_mmap(0, size + guard, PROT_READ | PROT_WRITE,
+    if (do_stack_fix == 0)
+    {
+        error = target_mmap(0, size + guard, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    }
+    else
+    {
+        int attempts;
+        abi_ulong newarg1;
+        // int fd = open("/dev/urandom", O_RDONLY);
+        // read(fd, &newarg1, sizeof(newarg1));
+        // close(fd);
+        // srand(newarg1);
+
+        for(attempts = 0; attempts < 10; attempts++)
+        {
+           if(attempts < 9)
+#if ELF_CLASS == ELFCLASS32
+               newarg1 = 0x7f012000;
+#else
+               newarg1 = 0x7f0122222000;
+#endif
+               ///newarg1 = (rand() & 0x00fff000)|0xf2000000;
+           else
+               newarg1 = 0;
+           error = target_mmap(newarg1, size + guard, PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+           if((error > 0) || (error < -TARGET_ENOTRECOVERABLE)) {
+                if (error != newarg1) {
+                    perror("mmap stack at 0x7f0122222000 failed. Use QEMU_NOSTACKFIX env variable");
+                    exit(-1);
+                }
+                break;
+           }
+        }
+    }
+
     if (error == -1) {
         perror("mmap stack");
         exit(-1);
@@ -1818,8 +1855,8 @@ static void load_elf_image(const char *image_name, int image_fd,
 {
     struct elfhdr *ehdr = (struct elfhdr *)bprm_buf;
     struct elf_phdr *phdr;
-    abi_ulong load_addr, load_bias, loaddr, hiaddr, error;
-    int i, retval;
+    abi_ulong load_addr, load_bias, loaddr, newloaddr, hiaddr, error;
+    int i, retval, is_image;
     const char *errmsg;
 
     /* First of all, some simple consistency checks */
@@ -1869,7 +1906,9 @@ static void load_elf_image(const char *image_name, int image_fd,
     }
 
     load_addr = loaddr;
-    if (ehdr->e_type == ET_DYN) {
+    is_image = strcmp(filename, image_name) == 0;
+
+    if (ehdr->e_type == ET_DYN && (do_pie_fix == 0 || !is_image)) {
         /* The image indicates that it can be loaded anywhere.  Find a
            location that can hold the memory space required.  If the
            image is pre-linked, LOADDR will be non-zero.  Since we do
@@ -1879,7 +1918,7 @@ static void load_elf_image(const char *image_name, int image_fd,
                                 MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,
                                 -1, 0);
 
-        if (strcmp(filename, image_name)){
+        if (!is_image){
             if (GLOBAL_librarymap == NULL) init_librarymap();
             add_to_librarymap(image_name, load_addr, load_addr+(hiaddr-loaddr));
         }
@@ -1887,6 +1926,24 @@ static void load_elf_image(const char *image_name, int image_fd,
         if (load_addr == -1) {
             goto exit_perror;
         }
+    } else if (ehdr->e_type == ET_DYN && do_pie_fix == 1 && is_image) {        
+#if ELF_CLASS == ELFCLASS32
+            newloaddr = 0x56555000;
+#else
+            newloaddr = 0x555555554000;
+#endif
+        load_addr = target_mmap(newloaddr, hiaddr - loaddr, PROT_NONE,
+                                MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,
+                                -1, 0);
+        if (load_addr != newloaddr) {
+            perror("mmap elf at 0x555555554000 failed. Use QEMU_NOPIEFIX env variable");
+            exit(-1);
+        }
+        if (!is_image){
+            if (GLOBAL_librarymap == NULL) init_librarymap();
+            add_to_librarymap(image_name, load_addr, load_addr+(hiaddr-loaddr));
+        }
+        
     } else if (pinterp_name != NULL) {
         /* This is the main executable.  Make sure that the low
            address does not conflict with MMAP_MIN_ADDR or the

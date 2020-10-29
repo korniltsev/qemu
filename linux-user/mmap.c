@@ -32,7 +32,9 @@
 #include "qemu-common.h"
 #include "translate-all.h"
 
-//#define DEBUG_MMAP
+#define DEBUG_MMAP
+
+int do_mmap_debug = 0;
 
 static pthread_mutex_t mmap_mutex = PTHREAD_MUTEX_INITIALIZER;
 static __thread int mmap_lock_count;
@@ -74,11 +76,14 @@ int target_mprotect(abi_ulong start, abi_ulong len, int prot)
     int prot1, ret;
 
 #ifdef DEBUG_MMAP
-    printf("mprotect: start=0x" TARGET_ABI_FMT_lx
-           "len=0x" TARGET_ABI_FMT_lx " prot=%c%c%c\n", start, len,
-           prot & PROT_READ ? 'r' : '-',
-           prot & PROT_WRITE ? 'w' : '-',
-           prot & PROT_EXEC ? 'x' : '-');
+    if (do_mmap_debug)
+    {
+        printf("mprotect: start=0x" TARGET_ABI_FMT_lx
+            "len=0x" TARGET_ABI_FMT_lx " prot=%c%c%c\n", start, len,
+            prot & PROT_READ ? 'r' : '-',
+            prot & PROT_WRITE ? 'w' : '-',
+            prot & PROT_EXEC ? 'x' : '-');
+    }
 #endif
 
     if ((start & ~TARGET_PAGE_MASK) != 0)
@@ -195,14 +200,17 @@ static int mmap_frag(abi_ulong real_start,
 }
 
 #if HOST_LONG_BITS == 64 && TARGET_ABI_BITS == 64
-# define TASK_UNMAPPED_BASE  (1ul << 38)
+abi_ulong TASK_UNMAPPED_BASE = 0x7f0211111000;
+abi_ulong mmap_next_start = 0x7f0211111000;
 #elif defined(__CYGWIN__)
 /* Cygwin doesn't have a whole lot of address space.  */
-# define TASK_UNMAPPED_BASE  0x18000000
+abi_ulong TASK_UNMAPPED_BASE = 0x18000000;
+abi_ulong mmap_next_start = 0x18000000;
 #else
-# define TASK_UNMAPPED_BASE  0x40000000
+abi_ulong TASK_UNMAPPED_BASE = 0x40000000;
+abi_ulong mmap_next_start = 0x40000000;
 #endif
-abi_ulong mmap_next_start = TASK_UNMAPPED_BASE;
+
 
 unsigned long last_brk;
 
@@ -371,6 +379,7 @@ abi_long target_mmap(abi_ulong start, abi_ulong len, int prot,
 
     mmap_lock();
 #ifdef DEBUG_MMAP
+    if (do_mmap_debug)
     {
         printf("mmap: start=0x" TARGET_ABI_FMT_lx
                " len=0x" TARGET_ABI_FMT_lx " prot=%c%c%c flags=",
@@ -562,9 +571,12 @@ abi_long target_mmap(abi_ulong start, abi_ulong len, int prot,
     page_set_flags(start, start + len, prot | PAGE_VALID);
  the_end:
 #ifdef DEBUG_MMAP
-    printf("ret=0x" TARGET_ABI_FMT_lx "\n", start);
-    page_dump(stdout);
-    printf("\n");
+    if (do_mmap_debug)
+    {
+        printf("ret=0x" TARGET_ABI_FMT_lx "\n", start);
+        page_dump(stdout);
+        printf("\n");
+    }
 #endif
     tb_invalidate_phys_range(start, start + len);
     mmap_unlock();
@@ -621,9 +633,12 @@ int target_munmap(abi_ulong start, abi_ulong len)
     int prot, ret;
 
 #ifdef DEBUG_MMAP
-    printf("munmap: start=0x" TARGET_ABI_FMT_lx " len=0x"
+    if (do_mmap_debug)
+    {
+        printf("munmap: start=0x" TARGET_ABI_FMT_lx " len=0x"
            TARGET_ABI_FMT_lx "\n",
            start, len);
+    }
 #endif
     if (start & ~TARGET_PAGE_MASK)
         return -EINVAL;

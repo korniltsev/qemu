@@ -209,6 +209,11 @@ unsigned long init_guest_space(unsigned long host_start,
 
 #include "qemu/log.h"
 
+extern int do_mmap_debug;
+extern int do_stack_fix;
+extern int do_pie_fix;
+extern abi_ulong TASK_UNMAPPED_BASE;
+
 /* syscall.c */
 int host_to_target_waitstatus(int status);
 
