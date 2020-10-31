@@ -1001,7 +1001,11 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
     GLOBAL_last_fork_change = GLOBAL_logstate->changelist_number;
 
     if (GLOBAL_last_was_syscall) {
-      #ifdef R_EAX
+      #if defined(TARGET_X86_64)
+        add_change((void *)&env->regs[R_EAX] - (void *)env, env->regs[R_EAX], IS_WRITE | (sizeof(target_ulong)<<3));
+        add_change((void *)&env->regs[R_ECX] - (void *)env, env->regs[R_ECX], IS_WRITE | (sizeof(target_ulong)<<3));
+        add_change((void *)&env->regs[11] - (void *)env, env->regs[11], IS_WRITE | (sizeof(target_ulong)<<3));
+      #elif defined(R_EAX)
         add_change((void *)&env->regs[R_EAX] - (void *)env, env->regs[R_EAX], IS_WRITE | (sizeof(target_ulong)<<3));
       #endif
       #ifdef TARGET_ARM
@@ -1076,7 +1080,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
 #ifdef R_EAX
             struct change *a = NULL;
 
-            if ((void*)t0 == helper_load_seg) {
+            if ((void*)t0 == helper_load_seg) {// todo what is this? why no GLOBAL_last_was_syscall = 1
               if (GLOBAL_logstate->is_filtered == 1) {
                 commit_pending_changes();
               }
@@ -1092,7 +1096,19 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
               }
               a = track_syscall_begin(env, env->regs[R_EAX]);
               GLOBAL_last_was_syscall = 1;
+              QIRA_DEBUG("syscall helper_raise_interrupt\n");
             }
+#if defined(TARGET_X86_64)
+            else if ((void*)t0 == helper_syscall) {
+                if (GLOBAL_logstate->is_filtered == 1) {
+                    commit_pending_changes();
+                }
+                a = track_syscall_begin(env, env->regs[R_EAX]);
+                GLOBAL_last_was_syscall = 1;
+                QIRA_DEBUG("syscall helper_syscall\n");
+            }
+#endif // defined(TARGET_X86_64)
+
 #endif
 #ifdef TARGET_ARM
             if ((void*)t0 == helper_exception_with_syndrome) {

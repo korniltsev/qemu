@@ -974,6 +974,8 @@ void helper_syscall(CPUX86State *env, int next_eip_addend)
 
     cs->exception_index = EXCP_SYSCALL;
     env->exception_next_eip = env->eip + next_eip_addend;
+    env->regs[R_ECX] = env->eip + next_eip_addend;
+    env->regs[11] = cpu_compute_eflags(env);//todo this seems to be different from a real cpu
     cpu_loop_exit(cs);
 }
 #else
