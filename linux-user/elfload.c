@@ -12,6 +12,7 @@
 #include "qemu/guest-random.h"
 #include "qemu/units.h"
 #include "qemu/selfmap.h"
+#include "librarymap.h"
 
 #ifdef _ARCH_PPC64
 #undef ARCH_DLINFO
@@ -2371,6 +2372,9 @@ void probe_guest_base(const char *image_name, abi_ulong guest_loaddr,
 
    On return: INFO values will be filled in, as necessary or available.  */
 
+extern struct library *GLOBAL_librarymap;
+extern const char *filename;
+
 static void load_elf_image(const char *image_name, int image_fd,
                            struct image_info *info, char **pinterp_name,
                            char bprm_buf[BPRM_BUF_SIZE])
@@ -2476,6 +2480,12 @@ static void load_elf_image(const char *image_name, int image_fd,
                             MAP_PRIVATE | MAP_ANON | MAP_NORESERVE |
                             (ehdr->e_type == ET_EXEC ? MAP_FIXED : 0),
                             -1, 0);
+
+        if (strcmp(filename, image_name)){
+            if (GLOBAL_librarymap == NULL) init_librarymap();
+            add_to_librarymap(image_name, load_addr, load_addr+(hiaddr-loaddr));
+        }
+
     if (load_addr == -1) {
         goto exit_perror;
     }

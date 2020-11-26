@@ -12,6 +12,19 @@
 #include <sched.h>
 #include "qemu.h"
 
+#undef TARGET_ABI_FMT_lx
+#ifdef TARGET_ABI32
+typedef unsigned int abi_ulonglong;
+#define TARGET_ABI_FMT_lx "%x"
+#else
+typedef unsigned long long abi_ulonglong;
+#define TARGET_ABI_FMT_lx "%llx"
+#endif
+
+extern FILE *GLOBAL_strace_file;
+#define qemu_log(x...) { fprintf(GLOBAL_strace_file, x); fflush(GLOBAL_strace_file); }
+
+
 struct syscallname {
     int nr;
     const char *name;
@@ -659,7 +672,7 @@ print_semctl(const struct syscallname *name,
     qemu_log("%s(" TARGET_ABI_FMT_ld "," TARGET_ABI_FMT_ld ",",
              name->name, arg1, arg2);
     print_ipc_cmd(arg3);
-    qemu_log(",0x" TARGET_ABI_FMT_lx ")", arg4);
+    qemu_log(",0x" TARGET_ABI_FMT_lx ")", (abi_ulonglong)arg4);
 }
 #endif
 
@@ -746,7 +759,7 @@ print_syscall_ret_addr(const struct syscallname *name, abi_long ret,
                        abi_long arg3, abi_long arg4, abi_long arg5)
 {
     if (!print_syscall_err(ret)) {
-        qemu_log("0x" TARGET_ABI_FMT_lx, ret);
+        qemu_log("0x" TARGET_ABI_FMT_lx, (abi_ulonglong)ret);
     }
     qemu_log("\n");
 }
@@ -1357,9 +1370,13 @@ static void
 print_pointer(abi_long p, int last)
 {
     if (p == 0)
+    {
         qemu_log("NULL%s", get_comma(last));
+    }
     else
-        qemu_log("0x" TARGET_ABI_FMT_lx "%s", p, get_comma(last));
+    {
+        qemu_log("0x" TARGET_ABI_FMT_lx "%s", (abi_ulonglong)p, get_comma(last));
+    }
 }
 
 /*
@@ -3143,6 +3160,8 @@ static const struct syscallname scnames[] = {
 
 static int nsyscalls = ARRAY_SIZE(scnames);
 
+uint32_t get_current_clnum(void);
+
 /*
  * The public interface to this module.
  */
@@ -3154,6 +3173,7 @@ print_syscall(int num,
     int i;
     const char *format="%s(" TARGET_ABI_FMT_ld "," TARGET_ABI_FMT_ld "," TARGET_ABI_FMT_ld "," TARGET_ABI_FMT_ld "," TARGET_ABI_FMT_ld "," TARGET_ABI_FMT_ld ")";
 
+    qemu_log("%d ", get_current_clnum());
     qemu_log("%d ", getpid());
 
     for(i=0;i<nsyscalls;i++)

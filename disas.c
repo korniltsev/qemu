@@ -267,7 +267,12 @@ static void cap_dump_insn(disassemble_info *info, cs_insn *insn,
 {
     fprintf_function print = info->fprintf_func;
     int i, n, split;
-
+#ifdef TARGET_ARM // todo aarch64?
+    if (info->cap_arch == CS_ARCH_ARM) {
+        if (info->cap_mode & CS_MODE_THUMB) print(info->stream, "t");
+        else                                print(info->stream, "n");
+    }
+#endif
     print(info->stream, "0x%08" PRIx64 ": ", insn->address);
 
     n = insn->size;
@@ -431,7 +436,7 @@ static bool cap_disas_monitor(disassemble_info *info, uint64_t pc, int count)
 #endif /* CONFIG_CAPSTONE */
 
 /* Disassemble this for me please... (debugging).  */
-void target_disas(FILE *out, CPUState *cpu, target_ulong code,
+void real_target_disas(FILE *out, CPUState *cpu, target_ulong code,
                   target_ulong size)
 {
     CPUClass *cc = CPU_GET_CLASS(cpu);
@@ -450,6 +455,7 @@ void target_disas(FILE *out, CPUState *cpu, target_ulong code,
     s.info.cap_mode = 0;
     s.info.cap_insn_unit = 4;
     s.info.cap_insn_split = 4;
+    s.info.disassembler_options = (char *)"intel";
 
 #ifdef TARGET_WORDS_BIGENDIAN
     s.info.endian = BFD_ENDIAN_BIG;

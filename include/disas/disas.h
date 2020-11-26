@@ -8,7 +8,11 @@
 
 /* Disassemble this for me please... (debugging). */
 void disas(FILE *out, void *code, unsigned long size, const char *note);
+// this is hooked in tci.c for qira
 void target_disas(FILE *out, CPUState *cpu, target_ulong code,
+                  target_ulong size);
+
+void real_target_disas(FILE *out, CPUState *cpu, target_ulong code,
                   target_ulong size);
 
 void monitor_disas(Monitor *mon, CPUState *cpu,
