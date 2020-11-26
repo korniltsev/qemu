@@ -11,6 +11,9 @@ void disas(FILE *out, void *code, unsigned long size);
 void target_disas(FILE *out, CPUState *cpu, target_ulong code,
                   target_ulong size);
 
+void real_target_disas(FILE *out, CPUState *cpu, target_ulong code,
+                  target_ulong size);
+
 void monitor_disas(Monitor *mon, CPUState *cpu,
                    target_ulong pc, int nb_insn, int is_physical);
 

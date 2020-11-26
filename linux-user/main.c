@@ -48,6 +48,7 @@
 #include "cpu_loop-common.h"
 #include "crypto/init.h"
 
+const char *filename;
 char *exec_path;
 
 int singlestep;
@@ -416,6 +417,28 @@ struct qemu_argument {
     const char *help;
 };
 
+extern int GLOBAL_parent_id, GLOBAL_start_clnum, GLOBAL_id;
+
+static void handle_arg_qirachild(const char *arg) {
+  singlestep = 1; // always
+
+  int ret = sscanf(arg, "%d %d %d", &GLOBAL_parent_id, &GLOBAL_start_clnum, &GLOBAL_id);
+  if (ret != 3) {
+    printf("CORRUPT qirachild\n");
+  }
+}
+
+extern int GLOBAL_tracelibraries;
+
+static void handle_arg_tracelibraries(const char *arg) {
+  GLOBAL_tracelibraries = 1;
+}
+
+extern uint64_t GLOBAL_gatetrace;
+static void handle_arg_gatetrace(const char *arg) {
+  GLOBAL_gatetrace = strtoull(arg, NULL, 0);
+}
+
 static const struct qemu_argument arg_table[] = {
     {"h",          "",                 false, handle_arg_help,
      "",           "print this help"},
@@ -452,6 +475,12 @@ static const struct qemu_argument arg_table[] = {
      "pagesize",   "set the host page size to 'pagesize'"},
     {"singlestep", "QEMU_SINGLESTEP",  false, handle_arg_singlestep,
      "",           "run in singlestep mode"},
+    {"qirachild",  "QIRA_CHILD",  true, handle_arg_qirachild,
+     "",           "parent_id, start_clnum, id"},
+    {"tracelibraries",  "QIRA_TRACELIBRARIES",  false, handle_arg_tracelibraries,
+     "",           ""},
+    {"gatetrace",  "QIRA_GATETRACE",  true, handle_arg_gatetrace,
+     "",           "address to gate starting trace on"},
     {"strace",     "QEMU_STRACE",      false, handle_arg_strace,
      "",           "log system calls"},
     {"seed",       "QEMU_RAND_SEED",   true,  handle_arg_seed,
@@ -608,6 +637,7 @@ static int parse_args(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+    filename = argv[optind];
     exec_path = argv[optind];
 
     return optind;

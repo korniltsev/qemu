@@ -148,6 +148,10 @@ static void cap_dump_insn(disassemble_info *info, cs_insn *insn)
     FILE *stream = info->stream;
     int i, n, split;
 
+    if (info->cap_arch == CS_ARCH_ARM) { // todo aarch64?
+        if (info->cap_mode & CS_MODE_THUMB) print(info->stream, "t");
+        else                                print(info->stream, "n");
+    }
     print(stream, "0x%08" PRIx64 ": ", insn->address);
 
     n = insn->size;

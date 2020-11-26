@@ -212,7 +212,7 @@ static void initialize_debug_host(CPUDebug *s)
 }
 
 /* Disassemble this for me please... (debugging).  */
-void target_disas(FILE *out, CPUState *cpu, target_ulong code,
+void real_target_disas(FILE *out, CPUState *cpu, target_ulong code,
                   target_ulong size)
 {
     target_ulong pc;
