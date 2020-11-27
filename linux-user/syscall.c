@@ -129,6 +129,7 @@
 #include "qapi/error.h"
 #include "fd-trans.h"
 #include "tcg/tcg.h"
+#include "librarymap.h"
 
 #ifndef CLONE_IO
 #define CLONE_IO                0x80000000      /* Clone io context */
@@ -8155,7 +8156,7 @@ static int host_to_target_cpu_mask(const unsigned long *host_mask,
     return 0;
 }
 
-extern void add_to_librarymap(const char *name, abi_ulong begin, abi_ulong end);
+
 
 /* This is an internal helper for do_syscall so that it is easier
  * to have a single return point, so that actions, such as logging
@@ -9629,14 +9630,14 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
             ret = get_errno(target_mmap(v1, v2, v3,
                                         target_to_host_bitmask(v4, mmap_flags_tbl),
                                         v5, v6));
-            if (v5 >= 30) { add_to_librarymap("unknown", ret, ret+v2); } //todo mmap failed case
+            if (v5 >= 30) { qira_add_to_librarymap("unknown", ret, ret+v2); } //todo mmap failed case
         }
 #else
         ret = get_errno(target_mmap(arg1, arg2, arg3,
                                     target_to_host_bitmask(arg4, mmap_flags_tbl),
                                     arg5,
                                     arg6));
-        if (arg5 >= 30) { add_to_librarymap("unknown", ret, ret+arg2); } //todo mmap failed case
+        if (arg5 >= 30) { qira_add_to_librarymap("unknown", ret, ret+arg2); } //todo mmap failed case
 #endif
         return ret;
 #endif
@@ -9648,7 +9649,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
         ret = target_mmap(arg1, arg2, arg3,
                           target_to_host_bitmask(arg4, mmap_flags_tbl),
                           arg5, arg6 << MMAP_SHIFT);
-        if (arg5 >= 30) { add_to_librarymap("unknown", ret, ret+arg2); } //todo mmap failed case  
+        if (arg5 >= 30) { qira_add_to_librarymap("unknown", ret, ret+arg2); } //todo mmap failed case
         return get_errno(ret);
 #endif
     case TARGET_NR_munmap:

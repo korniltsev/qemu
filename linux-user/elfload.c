@@ -2706,9 +2706,9 @@ static void load_elf_image(const char *image_name, int image_fd,
                             (ehdr->e_type == ET_EXEC ? MAP_FIXED : 0),
                             -1, 0);
 
-        if (strcmp(filename, image_name)){
-            if (GLOBAL_librarymap == NULL) init_librarymap();
-            add_to_librarymap(image_name, load_addr, load_addr+(hiaddr-loaddr));
+        if (strcmp(filename, image_name))
+        {
+            qira_add_to_librarymap(image_name, load_addr, load_addr+(hiaddr-loaddr));
         }
 
     if (load_addr == -1) {

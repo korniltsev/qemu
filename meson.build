@@ -1553,6 +1553,7 @@ specific_ss.add(when: 'CONFIG_TCG', if_true: files(
   'tcg/tcg-op-vec.c',
   'tcg/tcg-op.c',
   'tcg/tcg.c',
+  'tcg/qira.c',
 ))
 specific_ss.add(when: 'CONFIG_TCG_INTERPRETER', if_true: files('disas/tci.c', 'tcg/tci.c'))
 
