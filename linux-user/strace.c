@@ -11,6 +11,7 @@
 #include <linux/netlink.h>
 #include <sched.h>
 #include "qemu.h"
+#include "librarymap.h"
 
 #undef TARGET_ABI_FMT_lx
 #ifdef TARGET_ABI32
@@ -21,7 +22,6 @@ typedef unsigned long long abi_ulonglong;
 #define TARGET_ABI_FMT_lx "%llx"
 #endif
 
-extern FILE *GLOBAL_strace_file;
 #define qemu_log(x...) { fprintf(GLOBAL_strace_file, x); fflush(GLOBAL_strace_file); }
 
 
@@ -3160,7 +3160,6 @@ static const struct syscallname scnames[] = {
 
 static int nsyscalls = ARRAY_SIZE(scnames);
 
-uint32_t get_current_clnum(void);
 
 /*
  * The public interface to this module.
