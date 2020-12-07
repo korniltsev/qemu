@@ -148,7 +148,8 @@ typedef struct DisasContext {
 static void gen_eob(DisasContext *s);
 static void gen_jr(DisasContext *s, TCGv dest);
 static void gen_jmp(DisasContext *s, target_ulong eip);
-static void gen_jmp_tb(DisasContext *s, target_ulong eip, int tb_num);
+static void gen_jmp_opt(DisasContext *s, target_ulong eip);
+static void gen_jmp_tb(DisasContext *s, target_ulong eip, int tb_num, bool jmp_opt);
 static void gen_op(DisasContext *s1, int op, MemOp ot, int d);
 
 /* i386 arith/logic operations */
@@ -1070,7 +1071,7 @@ static TCGLabel *gen_jz_ecx_string(DisasContext *s, target_ulong next_eip)
     TCGLabel *l2 = gen_new_label();
     gen_op_jnz_ecx(s, s->aflag, l1);
     gen_set_label(l2);
-    gen_jmp_tb(s, next_eip, 1);
+    gen_jmp_tb(s, next_eip, 1, false);
     gen_set_label(l1);
     return l2;
 }
@@ -1171,7 +1172,7 @@ static inline void gen_repz_ ## op(DisasContext *s, MemOp ot,              \
        before rep string_insn */                                              \
     if (s->repz_opt)                                                          \
         gen_op_jz_ecx(s, s->aflag, l2);                                       \
-    gen_jmp(s, cur_eip);                                                      \
+    gen_jmp_opt(s, cur_eip);                                                      \
 }
 
 #define GEN_REPZ2(op)                                                         \
@@ -1189,7 +1190,7 @@ static inline void gen_repz_ ## op(DisasContext *s, MemOp ot,              \
     gen_jcc1(s, (JCC_Z << 1) | (nz ^ 1), l2);                                 \
     if (s->repz_opt)                                                          \
         gen_op_jz_ecx(s, s->aflag, l2);                                       \
-    gen_jmp(s, cur_eip);                                                      \
+    gen_jmp_opt(s, cur_eip);                                                      \
 }
 
 GEN_REPZ(movs)
@@ -2231,7 +2232,7 @@ static inline void gen_jcc(DisasContext *s, int b,
 {
     TCGLabel *l1, *l2;
 
-    if (s->jmp_opt) {
+    if (s->jmp_opt && false) {
         l1 = gen_new_label();
         gen_jcc1(s, b, l1);
 
@@ -2620,11 +2621,11 @@ static void gen_jr(DisasContext *s, TCGv dest)
 
 /* generate a jump to eip. No segment change must happen before as a
    direct call to the next block may occur */
-static void gen_jmp_tb(DisasContext *s, target_ulong eip, int tb_num)
+static void gen_jmp_tb(DisasContext *s, target_ulong eip, int tb_num, bool jmp_opt)
 {
     gen_update_cc_op(s);
     set_cc_op(s, CC_OP_DYNAMIC);
-    if (s->jmp_opt) {
+    if (s->jmp_opt && jmp_opt) {
         gen_goto_tb(s, tb_num, eip);
     } else {
         gen_jmp_im(s, eip);
@@ -2634,7 +2635,12 @@ static void gen_jmp_tb(DisasContext *s, target_ulong eip, int tb_num)
 
 static void gen_jmp(DisasContext *s, target_ulong eip)
 {
-    gen_jmp_tb(s, eip, 0);
+    gen_jmp_tb(s, eip, 0, false);
+}
+
+static void gen_jmp_opt(DisasContext *s, target_ulong eip)
+{
+    gen_jmp_tb(s, eip, 0, true);
 }
 
 static inline void gen_ldq_env_A0(DisasContext *s, int offset)
@@ -8487,7 +8493,8 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->code64 = (flags >> HF_CS64_SHIFT) & 1;
 #endif
     dc->flags = flags;
-    dc->jmp_opt = 0;// [qira] disable block chaining
+    dc->jmp_opt = !(dc->tf || dc->base.singlestep_enabled ||
+                    (flags & HF_INHIBIT_IRQ_MASK));
     /* Do not optimize repz jumps at all in icount mode, because
        rep movsS instructions are execured with different paths
        in !repz_opt and repz_opt modes. The first one was used
