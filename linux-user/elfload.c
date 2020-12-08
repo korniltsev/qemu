@@ -1795,7 +1795,7 @@ static abi_ulong copy_elf_strings(int argc, char **argv, char *scratch,
 static abi_ulong setup_arg_pages(struct linux_binprm *bprm,
                                  struct image_info *info)
 {
-    abi_ulong size, error, guard;
+    abi_ulong size, error, guard, stack_addr = 0;
 
     size = guest_stack_size;
     if (size < STACK_LOWER_LIMIT) {
@@ -1806,7 +1806,14 @@ static abi_ulong setup_arg_pages(struct linux_binprm *bprm,
         guard = qemu_real_host_page_size;
     }
 
-    error = target_mmap(0, size + guard, PROT_READ | PROT_WRITE,
+    if (krm_stack) {
+#if ELF_CLASS == ELFCLASS32
+        stack_addr = 0x7f012000;
+#else
+        stack_addr = 0x7f0122222000;
+#endif
+    }
+    error = target_mmap(stack_addr, size + guard, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (error == -1) {
         perror("mmap stack");
@@ -1968,6 +1975,7 @@ static abi_ulong create_elf_tables(abi_ulong p, int argc, int envc,
      * Generate 16 random bytes for userspace PRNG seeding.
      */
     qemu_guest_getrandom_nofail(k_rand_bytes, sizeof(k_rand_bytes));
+    if (krm_stack_random) memset(k_rand_bytes, 0xca, sizeof(k_rand_bytes));
     if (STACK_GROWS_DOWN) {
         sp -= 16;
         u_rand_bytes = sp;
@@ -2573,7 +2581,7 @@ static void load_elf_image(const char *image_name, int image_fd,
 {
     struct elfhdr *ehdr = (struct elfhdr *)bprm_buf;
     struct elf_phdr *phdr;
-    abi_ulong load_addr, load_bias, loaddr, hiaddr, error;
+    abi_ulong load_addr, load_bias, loaddr, hiaddr, krm_load_adr, error;
     int i, retval, prot_exec;
     Error *err = NULL;
 
@@ -2656,6 +2664,19 @@ static void load_elf_image(const char *image_name, int image_fd,
         }
     }
 
+    if (krm_pie
+        && strcmp(filename, image_name) == 0
+        && ehdr->e_type == ET_DYN
+        && loaddr == 0) {
+#if ELF_CLASS == ELFCLASS32
+        krm_load_adr = 0x56555000;
+#else
+        krm_load_adr = 0x555555554000;
+#endif
+    } else {
+        krm_load_adr = loaddr;
+    }
+
     if (pinterp_name != NULL) {
         /*
          * This is the main executable.
@@ -2701,7 +2722,7 @@ static void load_elf_image(const char *image_name, int image_fd,
      * In both cases, we will overwrite pages in this range with mappings
      * from the executable.
      */
-    load_addr = target_mmap(loaddr, hiaddr - loaddr, PROT_NONE,
+    load_addr = target_mmap(krm_load_adr, hiaddr - loaddr, PROT_NONE,
                             MAP_PRIVATE | MAP_ANON | MAP_NORESERVE |
                             (ehdr->e_type == ET_EXEC ? MAP_FIXED : 0),
                             -1, 0);
