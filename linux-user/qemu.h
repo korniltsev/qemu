@@ -475,6 +475,12 @@ abi_long target_mremap(abi_ulong old_addr, abi_ulong old_size,
                        abi_ulong new_addr);
 extern unsigned long last_brk;
 extern abi_ulong mmap_next_start;
+// kinda real memory
+extern int krm_stack;
+extern int krm_pie;
+extern int krm_stack_random;
+extern abi_ulong TASK_UNMAPPED_BASE;
+
 abi_ulong mmap_find_vma(abi_ulong, abi_ulong, abi_ulong);
 void mmap_fork_start(void);
 void mmap_fork_end(int child);

@@ -47,7 +47,7 @@
 #include "target_elf.h"
 #include "cpu_loop-common.h"
 #include "crypto/init.h"
-
+#include "librarymap.h"
 const char *filename;
 char *exec_path;
 
@@ -419,7 +419,7 @@ struct qemu_argument {
     const char *help;
 };
 
-extern int GLOBAL_parent_id, GLOBAL_start_clnum, GLOBAL_id;
+
 
 static void handle_arg_qirachild(const char *arg) {
   singlestep = 1; // always
@@ -439,6 +439,23 @@ static void handle_arg_tracelibraries(const char *arg) {
 extern uint64_t GLOBAL_gatetrace;
 static void handle_arg_gatetrace(const char *arg) {
   GLOBAL_gatetrace = strtoull(arg, NULL, 0);
+}
+
+
+static void handle_arg_krm_no_stack(const char *arg) {
+    krm_stack = 0;
+}
+static void handle_arg_krm_no_mmap(const char *arg) {
+#if HOST_LONG_BITS == 64 && TARGET_ABI_BITS == 64
+    TASK_UNMAPPED_BASE = (1ul << 38);
+    mmap_next_start = (1ul << 38);
+#endif
+}
+static void handle_arg_krm_no_pie(const char *arg) {
+    krm_pie = 0;
+}
+static void handle_arg_krm_no_stack_random(const char *arg) {
+    krm_stack_random = 0;
 }
 
 static const struct qemu_argument arg_table[] = {
@@ -489,6 +506,14 @@ static const struct qemu_argument arg_table[] = {
      "",           "Seed for pseudo-random number generator"},
     {"trace",      "QEMU_TRACE",       true,  handle_arg_trace,
      "",           "[[enable=]<pattern>][,events=<file>][,file=<file>]"},
+    {"krm_no_stack", "QEMU_KRM_NO_STACK",     false, handle_arg_krm_no_stack,
+     "",           "krm: disable stack  (do not move move stack to 0x7f0122222000)"},
+    {"krm_no_mmap", "QEMU_KRM_NO_MMAP",     false, handle_arg_krm_no_mmap,
+     "",           "krm: disable mmap (do not set mmap_next_start as 0x7f0211111000 for HOST_LONG_BITS == 64 && TARGET_ABI_BITS == 64 )."},
+    {"krm_no_pie", "QEMU_KRM_NO_PIE",     false, handle_arg_krm_no_pie,
+     "",           "krm: disable pie (do not load pie at 0x555555554000 for elf64 )."},
+    {"krm_no_stack_random", "QEMU_KRM_NO_STACK_RANDOM",     false, handle_arg_krm_no_stack_random,
+     "",           "krm: disable stack random (do not make stack random(AT_RANDOM) non random, ie do not make stack canary = 0xcacacacacacaca00)"},
 #ifdef CONFIG_PLUGIN
     {"plugin",     "QEMU_PLUGIN",      true,  handle_arg_plugin,
      "",           "[file=]<file>[,arg=<string>]"},

@@ -184,15 +184,15 @@ static int mmap_frag(abi_ulong real_start,
 }
 
 #if HOST_LONG_BITS == 64 && TARGET_ABI_BITS == 64
-#ifdef TARGET_AARCH64
-# define TASK_UNMAPPED_BASE  0x5500000000
+abi_ulong TASK_UNMAPPED_BASE = 0x7f0211111000;
+abi_ulong mmap_next_start = 0x7f0211111000;
 #else
-# define TASK_UNMAPPED_BASE  (1ul << 38)
+abi_ulong TASK_UNMAPPED_BASE = 0x40000000;
+abi_ulong mmap_next_start = 0x40000000;
 #endif
-#else
-# define TASK_UNMAPPED_BASE  0x40000000
-#endif
-abi_ulong mmap_next_start = TASK_UNMAPPED_BASE;
+int krm_stack = 1;
+int krm_pie = 1;
+int krm_stack_random = 1;
 
 unsigned long last_brk;
 
